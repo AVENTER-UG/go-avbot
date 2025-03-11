@@ -1,8 +1,6 @@
 module go-avbot
 
-go 1.22.0
-
-toolchain go1.22.5
+go 1.23.5
 
 require (
 	github.com/AVENTER-UG/gomatrix v0.5.1-0.20240622160454-816d89326441
