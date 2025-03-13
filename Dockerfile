@@ -1,4 +1,4 @@
-FROM golang:1.23-alpine AS builder
+FROM golang:alpine AS builder
 
 WORKDIR /build
 
@@ -6,7 +6,7 @@ ARG BUILDDATE ""
 
 COPY . /build/
 
-RUN apk add --update git gcc musl-dev && \
+RUN apk update && apk upgrade && apk add git gcc musl-dev && \
     go get -d
 
 RUN CGO_CFLAGS="-D_LARGEFILE64_SOURCE -g -O2 -Wno-return-local-addr" CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -ldflags "-X main.MinVersion=${BUILDDATE} -extldflags \"-static\"" -o main .
