@@ -62,7 +62,23 @@ func (e *Service) Commands(cli *gomatrix.Client) []types.Command {
 				return nil, nil
 			},
 		},
+		{
+			Path: []string{"ollama", "model"},
+			Command: func(roomID, userID string, args []string) (interface{}, error) {
+				return e.setModel(args)
+			},
+		},
 	}
+}
+
+func (e *Service) setModel(args []string) (interface{}, error) {
+	if len(args) < 1 {
+		return &gomatrix.TextMessage{MsgType: "m.notice", Body: fmt.Sprintf(`Missing parameters.`)}, nil
+	}
+
+	e.Model = args[0]
+
+	return &gomatrix.TextMessage{MsgType: "m.notice", Body: "Set Model to" + e.Model}, nil
 }
 
 func (e *Service) chat(cli *gomatrix.Client, roomID, message string) {
