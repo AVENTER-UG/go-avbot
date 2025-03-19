@@ -58,44 +58,26 @@ func (e *Service) Commands(cli *gomatrix.Client) []types.Command {
 		{
 			Path: []string{"ollama"},
 			Command: func(roomID, userID string, args []string) (interface{}, error) {
-				e.chat(cli, roomID, strings.Join(args, " "))
+				e.chat(cli, roomID, e.Model, strings.Join(args, " "))
 				return nil, nil
 			},
 		},
 		{
-			Path: []string{"ollama", "set", "model"},
+			Path: []string{"ollama", "model"},
 			Command: func(roomID, userID string, args []string) (interface{}, error) {
-				return e.setModel(args)
+				e.chat(cli, roomID, args[0], strings.Join(args[1:], " "))
+				return nil, nil
 			},
 		},
-		{
-			Path: []string{"ollama", "currentmodel"},
-			Command: func(roomID, userID string, args []string) (interface{}, error) {
-				return e.currentModel()
-			},
-		},
+
 	}
 }
 
-func (e *Service) setModel(args []string) (interface{}, error) {
-	if len(args) < 1 {
-		return &gomatrix.TextMessage{MsgType: "m.notice", Body: fmt.Sprintf(`Missing parameters.`)}, nil
-	}
-
-	e.Model = args[0]
-
-	return &gomatrix.TextMessage{MsgType: "m.notice", Body: "Set Model to: " + e.Model}, nil
-}
-
-func (e *Service) currentModel() (interface{}, error) {
-	return &gomatrix.TextMessage{MsgType: "m.notice", Body: "Current Model is: " + e.Model}, nil
-}
-
-func (e *Service) chat(cli *gomatrix.Client, roomID, message string) {
+func (e *Service) chat(cli *gomatrix.Client, roomID, model, message string) {
 	cli.UserTyping(roomID, true, 900000)
 
 	req := &api.GenerateRequest{
-		Model:   e.Model,
+		Model:   model,
 		Prompt:  message,
 		Context: ollamaContext[roomID],
 		Stream:  util.BoolToPointer(false),
