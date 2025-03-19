@@ -63,9 +63,15 @@ func (e *Service) Commands(cli *gomatrix.Client) []types.Command {
 			},
 		},
 		{
-			Path: []string{"ollama", "model"},
+			Path: []string{"ollama", "set", "model"},
 			Command: func(roomID, userID string, args []string) (interface{}, error) {
 				return e.setModel(args)
+			},
+		},
+		{
+			Path: []string{"ollama", "currentmodel"},
+			Command: func(roomID, userID string, args []string) (interface{}, error) {
+				return e.currentModel()
 			},
 		},
 	}
@@ -79,6 +85,10 @@ func (e *Service) setModel(args []string) (interface{}, error) {
 	e.Model = args[0]
 
 	return &gomatrix.TextMessage{MsgType: "m.notice", Body: "Set Model to: " + e.Model}, nil
+}
+
+func (e *Service) currentModel() (interface{}, error) {
+	return &gomatrix.TextMessage{MsgType: "m.notice", Body: "Current Model is: " + e.Model}, nil
 }
 
 func (e *Service) chat(cli *gomatrix.Client, roomID, message string) {
