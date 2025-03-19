@@ -78,7 +78,7 @@ func (e *Service) setModel(args []string) (interface{}, error) {
 
 	e.Model = args[0]
 
-	return &gomatrix.TextMessage{MsgType: "m.notice", Body: "Set Model to" + e.Model}, nil
+	return &gomatrix.TextMessage{MsgType: "m.notice", Body: "Set Model to: " + e.Model}, nil
 }
 
 func (e *Service) chat(cli *gomatrix.Client, roomID, message string) {
