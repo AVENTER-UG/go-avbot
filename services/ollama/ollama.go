@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"encoding/base64"
 	"io"
 	"net/http"
 
@@ -57,41 +56,88 @@ func (e *Service) Register(oldService types.Service, client *gomatrix.Client) er
 // Responds with a notice of "some message".
 
 func (e *Service) RawMessage(cli *gomatrix.Client, event *gomatrix.Event, body string) {
-  if event.Content["msgtype"] == "m.text" {
-		e.chat(cli, event.RoomID, e.Model, body)
-	}
-  if event.Content["msgtype"] == "m.image" {
-		e.image(cli, event.RoomID, e.Model, event.Content)
+	if event.Content["msgtype"] == "m.text" {
+		e.chat(cli, event.RoomID, e.Model, body, event)
 	}
 }
 
-func (e *Service) image(cli *gomatrix.Client, roomID, model string, content map[string]interface{}) {
-	cli.UserTyping(roomID, true, 900000)
+func (e *Service) GetPreviousMessage(cli *gomatrix.Client, roomID, eventID string) (*gomatrix.Event, error) {
+	path := fmt.Sprintf("%s/_matrix/client/v3/rooms/%s/context/%s", cli.HomeserverURL.String(), roomID, eventID)
 
+	var resp struct {
+		Event        gomatrix.Event   `json:"event"`
+		EventsBefore []gomatrix.Event `json:"events_before"`
+		EventsAfter  []gomatrix.Event `json:"events_after"`
+	}
+
+	err := cli.MakeRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, fmt.Errorf("Could not create context message: %w", err)
+	}
+
+	// Iteriere rückwärts durch die vorherigen Events
+	for i := 0; i < len(resp.EventsBefore); i++ {
+		event := resp.EventsBefore[i]
+
+		if event.Sender != cli.UserID && event.Type == "m.room.message" {
+			return &event, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Could not find previous image message")
+}
+
+
+func (e *Service) getImage(cli *gomatrix.Client, roomID string, content map[string]interface{}) []byte {
 	url, _ := cli.MXCToHTTP(content["url"].(string))
 
 	resp, err := http.Get(url)
 	if err != nil {
-		return
+		logrus.WithField("room_id", roomID).Errorf("Failes to get image data: %s", err.Error())
+		return []byte{}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return
+		logrus.WithField("room_id", roomID).Errorf("Get Image status is not ok: %s", err.Error())
+		return []byte{}
 	}
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return
+		logrus.WithField("room_id", roomID).Errorf("Could not read image data: %s", err.Error())
+		return []byte{}
 	}
 
-  encoded := []byte(base64.StdEncoding.EncodeToString(data))
+	return data
+}
+
+func (e *Service) chat(cli *gomatrix.Client, roomID, model, message string, event *gomatrix.Event) {
+	cli.UserTyping(roomID, true, 900000)
+
+  lastEvent, err := e.GetPreviousMessage(cli, roomID, event.ID)
+	if err != nil {
+		fmt.Errorf("Failes to get last event: %s", err.Error())
+	}
 
 	req := &api.GenerateRequest{
 		Model:   model,
-		Images: []api.ImageData{encoded},
+		Prompt:  message,
 		Context: ollamaContext[roomID],
 		Stream:  util.BoolToPointer(false),
+	}
+
+	if lastEvent.Content["msgtype"].(string) == "m.image" {
+		data := e.getImage(cli, roomID, lastEvent.Content)
+		if data != nil {
+			req = &api.GenerateRequest{
+				Model:   model,
+				Prompt:  message,
+				Images:  []api.ImageData{data},
+				Context: ollamaContext[roomID],
+				Stream:  util.BoolToPointer(false),
+			}
+		}
 	}
 
 	respFunc := func(resp api.GenerateResponse) error {
@@ -117,44 +163,6 @@ func (e *Service) image(cli *gomatrix.Client, roomID, model string, content map[
 	}
 
 	err = ollama.Generate(ctx, req, respFunc)
-	if err != nil {
-		logrus.WithField("room_id", roomID).Errorf("%s", err.Error())
-	}
-}
-
-func (e *Service) chat(cli *gomatrix.Client, roomID, model, message string) {
-	cli.UserTyping(roomID, true, 900000)
-
-	req := &api.GenerateRequest{
-		Model:   model,
-		Prompt:  message,
-		Context: ollamaContext[roomID],
-		Stream:  util.BoolToPointer(false),
-	}
-
-	respFunc := func(resp api.GenerateResponse) error {
-		if len(ollamaContext[roomID]) >= e.ContextSize {
-			// keep only the last 100 items
-			ollamaContext[roomID] = ollamaContext[roomID][len(ollamaContext[roomID])-100:]
-		}
-		ollamaContext[roomID] = append(ollamaContext[roomID], resp.Context...)
-
-		msg := gomatrix.HTMLMessage{
-			Body:          resp.Response,
-			MsgType:       "m.notice",
-			Format:        "org.matrix.custom.html",
-			FormattedBody: util.MarkdownRender(resp.Response),
-		}
-
-		cli.UserTyping(roomID, false, 3000)
-
-		if _, err := cli.SendMessageEvent(roomID, "m.room.message", msg); err != nil {
-			return fmt.Errorf("Failes send event message to matrix: %s", err.Error())
-		}
-		return nil
-	}
-
-	err := ollama.Generate(ctx, req, respFunc)
 	if err != nil {
 		logrus.WithField("room_id", roomID).Errorf("%s", err.Error())
 	}

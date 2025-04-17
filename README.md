@@ -50,7 +50,10 @@ There are still a lot of work. Currently our main focus is the AWS support.
 
 ### Ollama AI
 
-- Chat with ollama
+- Chat with ollama, it even support picture upload
+
+![clipboard_20250417122305.bmp](vx_images/clipboard_20250417122305.bmp)
+![clipboard_20250417122430.bmp](vx_images/clipboard_20250417122430.bmp)
 
 ## API Documentation
 
