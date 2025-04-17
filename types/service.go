@@ -35,6 +35,7 @@ type Service interface {
 	// Return the type of service. This string MUST NOT change.
 	ServiceType() string
 	Commands(cli *gomatrix.Client) []Command
+	RawMessage(cli *gomatrix.Client, event *gomatrix.Event, body string)
 	Expansions(cli *gomatrix.Client) []Expansion
 	OnReceiveWebhook(w http.ResponseWriter, req *http.Request, cli *gomatrix.Client)
 	// A lifecycle function which is invoked when the service is being registered. The old service, if one exists, is provided,
@@ -89,6 +90,10 @@ func (s *DefaultService) Commands(cli *gomatrix.Client) []Command {
 // Expansions returns no expansions.
 func (s *DefaultService) Expansions(cli *gomatrix.Client) []Expansion {
 	return []Expansion{}
+}
+
+// Expansions returns no expansions.
+func (s *DefaultService) RawMessage(cli *gomatrix.Client, event *gomatrix.Event, body string) {
 }
 
 // Register does nothing and returns no error.

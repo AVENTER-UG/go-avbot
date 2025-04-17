@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"reflect"
 
 	"go-avbot/api"
 	"go-avbot/database"
@@ -208,6 +209,10 @@ func (c *Clients) onMessageEvent(client *gomatrix.Client, event *gomatrix.Event)
 			} else { // message isn't a command, it might need expanding
 				expansions := runExpansionsForService(service.Expansions(client), event, body)
 				responses = append(responses, expansions...)
+
+        if reflect.ValueOf(service).MethodByName("RawMessage").IsValid() {
+					service.RawMessage(client, event, body)
+				}
 			}
 		}
 

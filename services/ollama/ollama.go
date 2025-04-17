@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	"go-avbot/types"
 
@@ -53,24 +52,10 @@ func (e *Service) Register(oldService types.Service, client *gomatrix.Client) er
 //	!ollama some message
 //
 // Responds with a notice of "some message".
-func (e *Service) Commands(cli *gomatrix.Client) []types.Command {
-	return []types.Command{
-		{
-			Path: []string{"ollama"},
-			Command: func(roomID, userID string, args []string) (interface{}, error) {
-				e.chat(cli, roomID, e.Model, strings.Join(args, " "))
-				return nil, nil
-			},
-		},
-		{
-			Path: []string{"ollama", "model"},
-			Command: func(roomID, userID string, args []string) (interface{}, error) {
-				e.chat(cli, roomID, args[0], strings.Join(args[1:], " "))
-				return nil, nil
-			},
-		},
 
-	}
+func (e *Service) RawMessage(cli *gomatrix.Client, event *gomatrix.Event, body string) {
+  fmt.Println(body)
+	e.chat(cli, event.RoomID, e.Model, body)
 }
 
 func (e *Service) chat(cli *gomatrix.Client, roomID, model, message string) {
