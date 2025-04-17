@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"encoding/base64"
+	"io"
+	"net/http"
 
 	"go-avbot/types"
 
@@ -54,8 +57,69 @@ func (e *Service) Register(oldService types.Service, client *gomatrix.Client) er
 // Responds with a notice of "some message".
 
 func (e *Service) RawMessage(cli *gomatrix.Client, event *gomatrix.Event, body string) {
-  fmt.Println(body)
-	e.chat(cli, event.RoomID, e.Model, body)
+  if event.Content["msgtype"] == "m.text" {
+		e.chat(cli, event.RoomID, e.Model, body)
+	}
+  if event.Content["msgtype"] == "m.image" {
+		e.image(cli, event.RoomID, e.Model, event.Content)
+	}
+}
+
+func (e *Service) image(cli *gomatrix.Client, roomID, model string, content map[string]interface{}) {
+	cli.UserTyping(roomID, true, 900000)
+
+	url, _ := cli.MXCToHTTP(content["url"].(string))
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+  encoded := []byte(base64.StdEncoding.EncodeToString(data))
+
+	req := &api.GenerateRequest{
+		Model:   model,
+		Images: []api.ImageData{encoded},
+		Context: ollamaContext[roomID],
+		Stream:  util.BoolToPointer(false),
+	}
+
+	respFunc := func(resp api.GenerateResponse) error {
+		if len(ollamaContext[roomID]) >= e.ContextSize {
+			// keep only the last 100 items
+			ollamaContext[roomID] = ollamaContext[roomID][len(ollamaContext[roomID])-100:]
+		}
+		ollamaContext[roomID] = append(ollamaContext[roomID], resp.Context...)
+
+		msg := gomatrix.HTMLMessage{
+			Body:          resp.Response,
+			MsgType:       "m.notice",
+			Format:        "org.matrix.custom.html",
+			FormattedBody: util.MarkdownRender(resp.Response),
+		}
+
+		cli.UserTyping(roomID, false, 3000)
+
+		if _, err := cli.SendMessageEvent(roomID, "m.room.message", msg); err != nil {
+			return fmt.Errorf("Failes send event message to matrix: %s", err.Error())
+		}
+		return nil
+	}
+
+	err = ollama.Generate(ctx, req, respFunc)
+	if err != nil {
+		logrus.WithField("room_id", roomID).Errorf("%s", err.Error())
+	}
 }
 
 func (e *Service) chat(cli *gomatrix.Client, roomID, model, message string) {
