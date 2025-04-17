@@ -2,9 +2,9 @@
 
 #vars
 IMAGENAME=go-avbot
-TAG=v0.4.2
+TAG=v0.5.0
 BRANCH=$(shell git symbolic-ref --short HEAD | xargs basename)
-BRANCHSHORT=$(shell echo ${BRANCH} | awk -F. '{ print $1"."$2 }')
+BRANCHSHORT=$(shell echo ${BRANCH} | awk -F. '{ print $$1"."$$2 }')
 IMAGEFULLNAME=avhost/${IMAGENAME}
 LASTCOMMIT=$(shell git log -1 --pretty=short | tail -n 1 | tr -d " " | tr -d "UPDATE:")
 BUILDDATE=${shell date -u +%Y%m%dT%H%M%SZ}
@@ -12,13 +12,13 @@ BUILDDATE=${shell date -u +%Y%m%dT%H%M%SZ}
 .PHONY: help build bootstrap all docs publish push version
 
 help:
-	    @echo "Makefile arguments:"
-	    @echo ""
-	    @echo "Makefile commands:"
+			@echo "Makefile arguments:"
+			@echo ""
+			@echo "Makefile commands:"
 			@echo "push"
-	    @echo "build"
+			@echo "build"
 			@echo "build-bin"
-	    @echo "all"
+			@echo "all"
 			@echo "docs"
 			@echo "publish"
 			@echo "version"
@@ -27,8 +27,8 @@ help:
 .DEFAULT_GOAL := all
 
 ifeq (${BRANCH}, master)
-        BRANCH=latest
-        BRANCHSHORT=latest
+	BRANCH=latest
+	BRANCHSHORT=latest
 endif
 
 build:
@@ -40,8 +40,12 @@ build-bin:
 	@CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags "-X main.BuildVersion=${BUILDDATE} -X main.GitVersion=${TAG} -extldflags \"-static\"" .
 
 push:
-	@echo ">>>> Publish docker image: " ${BRANCH} ${BUILDDATE}
-	@docker buildx build --push --platform linux/amd64 --build-arg TAG=${TAG} --build-arg BUILDDATE=${BUILDDATE} -t ${IMAGEFULLNAME}:${BRANCH} .
+	@echo ">>>> Publish docker image: " ${BRANCH}
+	@docker buildx create --use --name buildkit
+	@docker buildx build --sbom=true --provenance=true --platform linux/amd64 --push --build-arg TAG=${BRANCH} --build-arg BUILDDATE=${BUILDDATE} -t ${IMAGEFULLNAME}:${BRANCH} .
+	@docker buildx build --sbom=true --provenance=true --platform linux/amd64 --push --build-arg TAG=${BRANCH} --build-arg BUILDDATE=${BUILDDATE} -t ${IMAGEFULLNAME}:${BRANCHSHORT} .
+	@docker buildx build --sbom=true --provenance=true --platform linux/amd64 --push --build-arg TAG=${BRANCH} --build-arg BUILDDATE=${BUILDDATE} -t ${IMAGEFULLNAME}:latest .
+	@docker buildx rm buildkit
 
 update-gomod:
 	go get -u
