@@ -32,6 +32,7 @@ type Service struct {
 var ollama *api.Client
 var ctx context.Context
 var ollamaContext map[string][]int
+var image bool
 
 func (e *Service) Register(oldService types.Service, client *gomatrix.Client) error {
 	ollamaContext = make(map[string][]int)
@@ -120,6 +121,10 @@ func (e *Service) chat(cli *gomatrix.Client, roomID, model, message string, even
 		fmt.Errorf("Failes to get last event: %s", err.Error())
 	}
 
+	if lastEvent.Content["msgtype"].(string) == "m.text" {
+		image = false
+	}
+
 	req := &api.GenerateRequest{
 		Model:   model,
 		Prompt:  message,
@@ -128,6 +133,8 @@ func (e *Service) chat(cli *gomatrix.Client, roomID, model, message string, even
 	}
 
 	if lastEvent.Content["msgtype"].(string) == "m.image" {
+		image = true
+
 		data := e.getImage(cli, roomID, lastEvent.Content)
 		if data != nil {
 			req = &api.GenerateRequest{
@@ -141,11 +148,13 @@ func (e *Service) chat(cli *gomatrix.Client, roomID, model, message string, even
 	}
 
 	respFunc := func(resp api.GenerateResponse) error {
-		if len(ollamaContext[roomID]) >= e.ContextSize {
-			// keep only the last 100 items
-			ollamaContext[roomID] = ollamaContext[roomID][len(ollamaContext[roomID])-100:]
+		if !image {
+			if len(ollamaContext[roomID]) >= e.ContextSize {
+				// keep only the last 100 items
+				ollamaContext[roomID] = ollamaContext[roomID][len(ollamaContext[roomID])-100:]
+			}
+			ollamaContext[roomID] = append(ollamaContext[roomID], resp.Context...)
 		}
-		ollamaContext[roomID] = append(ollamaContext[roomID], resp.Context...)
 
 		msg := gomatrix.HTMLMessage{
 			Body:          resp.Response,
