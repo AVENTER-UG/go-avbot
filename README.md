@@ -8,7 +8,7 @@ AVBOT is a bot for the Matrix Chat System.
 First we have to create a config.yaml inside of data directory that we have to mount into the container. A sample of these config can be found in our Github repository.
 
 ```bash
-docker run -v ./data:/go-avbot/data:rw avhost/go-avbot:latest
+docker run -v ./data:/app/data:rw avhost/go-avbot:latest
 ```
 
 ## License
@@ -54,6 +54,12 @@ There are still a lot of work. Currently our main focus is the AWS support.
 
 ![clipboard_20250417122305.bmp](vx_images/clipboard_20250417122305.bmp)
 ![clipboard_20250417122430.bmp](vx_images/clipboard_20250417122430.bmp)
+
+If there is only one user besides the bot in a room, then Ollama reacts to every message.
+If there is more than one user besides the bot in a room, you have to explicitly
+address the message to the bot.
+
+![clipboard_20250709213451.bmp](vx_images/clipboard_20250709213451.bmp)
 
 ## API Documentation
 

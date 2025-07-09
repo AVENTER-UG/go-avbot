@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"io"
 	"net/http"
+	"strings"
 
 	"go-avbot/types"
 
@@ -50,14 +51,32 @@ func (e *Service) Register(oldService types.Service, client *gomatrix.Client) er
 	return nil
 }
 
-// Commands supported:
+// RawMessage supported:
 //
-//	!ollama some message
-//
-// Responds with a notice of "some message".
-
+// Responds to every message
 func (e *Service) RawMessage(cli *gomatrix.Client, event *gomatrix.Event, body string) {
-	if event.Content["msgtype"] == "m.text" {
+	if event.Content["msgtype"] != "m.text" {
+		return
+	}
+
+	bodyLower := strings.ToLower(body)
+
+	rMembers, err := cli.JoinedMembers(event.RoomID)
+	if err != nil {
+		logrus.WithField("room_id", event.RoomID).Errorf("Could not get room members: %s", err.Error())
+		return
+	}
+
+	if len(rMembers.Joined) > 2 {
+		member := rMembers.Joined[cli.UserID]
+		if member.DisplayName != nil {
+  		if strings.Contains(bodyLower, *member.DisplayName) {
+				e.chat(cli, event.RoomID, e.Model, body, event)
+			}
+		}
+	}
+
+	if len(rMembers.Joined) <= 2 {
 		e.chat(cli, event.RoomID, e.Model, body, event)
 	}
 }
