@@ -55,6 +55,7 @@ func (e *Service) Register(oldService types.Service, client *gomatrix.Client) er
 //
 // Responds to every message
 func (e *Service) RawMessage(cli *gomatrix.Client, event *gomatrix.Event, body string) {
+	logrus.Info("t4st")
 	if event.Content["msgtype"] != "m.text" {
 		return
 	}
@@ -67,18 +68,19 @@ func (e *Service) RawMessage(cli *gomatrix.Client, event *gomatrix.Event, body s
 		return
 	}
 
-	if len(rMembers.Joined) > 2 {
+	if len(rMembers.Joined) > 1 {
 		member := rMembers.Joined[cli.UserID]
 		if member.DisplayName != nil {
-  		if strings.Contains(bodyLower, *member.DisplayName) {
+			body := strings.ReplaceAll(body, *member.DisplayName, "")
+  		if strings.Contains(bodyLower, strings.ToLower(*member.DisplayName)) {
 				e.chat(cli, event.RoomID, e.Model, body, event)
 			}
 		}
 	}
 
-	if len(rMembers.Joined) <= 2 {
-		e.chat(cli, event.RoomID, e.Model, body, event)
-	}
+//	if len(rMembers.Joined) <= 2 {
+//		e.chat(cli, event.RoomID, e.Model, body, event)
+//	}
 }
 
 func (e *Service) GetPreviousMessage(cli *gomatrix.Client, roomID, eventID string) (*gomatrix.Event, error) {
