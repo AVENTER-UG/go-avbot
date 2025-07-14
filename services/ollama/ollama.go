@@ -70,7 +70,8 @@ func (e *Service) RawMessage(cli *gomatrix.Client, event *gomatrix.Event, body s
 	if len(rMembers.Joined) > 2 {
 		member := rMembers.Joined[cli.UserID]
 		if member.DisplayName != nil {
-  		if strings.Contains(bodyLower, *member.DisplayName) {
+			body := strings.ReplaceAll(body, *member.DisplayName, "")
+			if strings.Contains(bodyLower, strings.ToLower(*member.DisplayName)) {
 				e.chat(cli, event.RoomID, e.Model, body, event)
 			}
 		}
