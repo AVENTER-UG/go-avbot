@@ -54,7 +54,7 @@ There are still a lot of work. Currently our main focus is the AWS support.
 
 ### Ollama AI
 
-- Chat with ollama, it even support picture upload
+- Chat with ollama! It even support picture upload
 
 ![clipboard_20250417122305.bmp](vx_images/clipboard_20250417122305.bmp)
 ![clipboard_20250417122430.bmp](vx_images/clipboard_20250417122430.bmp)
@@ -64,6 +64,10 @@ If there is more than one user besides the bot in a room, you have to explicitly
 address the message to the bot.
 
 ![clipboard_20250709213451.bmp](vx_images/clipboard_20250709213451.bmp)
+
+- `ollama think` before your message will tell ollama to think about the response.
+
+![clipboard_20250715154423.bmp](vx_images/clipboard_20250715154423.bmp)
 
 ## API Documentation
 

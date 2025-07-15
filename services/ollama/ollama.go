@@ -28,6 +28,7 @@ type Service struct {
 	Port        int
 	Model       string
 	ContextSize int
+	Think				bool
 }
 
 var ollama *api.Client
@@ -55,12 +56,21 @@ func (e *Service) Register(oldService types.Service, client *gomatrix.Client) er
 //
 // Responds to every message
 func (e *Service) RawMessage(cli *gomatrix.Client, event *gomatrix.Event, body string) {
+	e.Think = false
+
 	if event.Content["msgtype"] != "m.text" {
 		return
 	}
 
 	bodyLower := strings.ToLower(body)
 
+	// check if ollama should "think"
+	if strings.Contains(body, "ollama think") {
+	 	body = strings.ReplaceAll(body, "ollama think", "")
+		e.Think = true
+	}
+
+	// if the room has multiple users, only react if someone directly talk to the bot
 	rMembers, err := cli.JoinedMembers(event.RoomID)
 	if err != nil {
 		logrus.WithField("room_id", event.RoomID).Errorf("Could not get room members: %s", err.Error())
@@ -70,8 +80,8 @@ func (e *Service) RawMessage(cli *gomatrix.Client, event *gomatrix.Event, body s
 	if len(rMembers.Joined) > 2 {
 		member := rMembers.Joined[cli.UserID]
 		if member.DisplayName != nil {
-			body := strings.ReplaceAll(body, *member.DisplayName, "")
 			if strings.Contains(bodyLower, strings.ToLower(*member.DisplayName)) {
+      	body = strings.ReplaceAll(body, *member.DisplayName, "")
 				e.chat(cli, event.RoomID, e.Model, body, event)
 			}
 		}
@@ -150,6 +160,7 @@ func (e *Service) chat(cli *gomatrix.Client, roomID, model, message string, even
 		Prompt:  message,
 		Context: ollamaContext[roomID],
 		Stream:  util.BoolToPointer(false),
+		Think: 	 util.BoolToPointer(e.Think),
 	}
 
 	if lastEvent.Content["msgtype"].(string) == "m.image" {
@@ -163,6 +174,7 @@ func (e *Service) chat(cli *gomatrix.Client, roomID, model, message string, even
 				Images:  []api.ImageData{data},
 				Context: ollamaContext[roomID],
 				Stream:  util.BoolToPointer(false),
+				Think: 	 util.BoolToPointer(e.Think),
 			}
 		}
 	}
