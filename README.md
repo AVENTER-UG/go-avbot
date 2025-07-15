@@ -3,6 +3,10 @@
 AVBOT is a bot for the Matrix Chat System.
 
 
+## Funding
+
+[![](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate/?hosted_button_id=H553XE4QJ9GJ8)
+
 ## How to use it?
 
 First we have to create a config.yaml inside of data directory that we have to mount into the container. A sample of these config can be found in our Github repository.
