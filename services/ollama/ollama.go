@@ -160,7 +160,7 @@ func (e *Service) chat(cli *gomatrix.Client, roomID, model, message string, even
 		Prompt:  message,
 		Context: ollamaContext[roomID],
 		Stream:  util.BoolToPointer(false),
-		Think: 	 util.BoolToPointer(e.Think),
+		Think: 	 &api.ThinkValue{Value: e.Think},
 	}
 
 	if lastEvent.Content["msgtype"].(string) == "m.image" {
@@ -174,7 +174,7 @@ func (e *Service) chat(cli *gomatrix.Client, roomID, model, message string, even
 				Images:  []api.ImageData{data},
 				Context: ollamaContext[roomID],
 				Stream:  util.BoolToPointer(false),
-				Think: 	 util.BoolToPointer(e.Think),
+				Think: 	 &api.ThinkValue{Value: e.Think},
 			}
 		}
 	}

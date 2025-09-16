@@ -11,7 +11,7 @@ RUN apk update && apk upgrade && apk add git gcc musl-dev && \
 
 RUN CGO_CFLAGS="-D_LARGEFILE64_SOURCE -g -O2 -Wno-return-local-addr" CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -ldflags "-X main.MinVersion=${BUILDDATE} -extldflags \"-static\"" -o main .
 
-FROM alpine:3.19
+FROM alpine
 LABEL maintainer="Andreas Peters <support@aventer.biz>"
 LABEL org.opencontainers.image.title="go-avbot"
 LABEL org.opencontainers.image.description="Matrix Bot"
