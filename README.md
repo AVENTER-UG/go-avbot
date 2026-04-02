@@ -69,6 +69,10 @@ address the message to the bot.
 
 ![clipboard_20250715154423.bmp](vx_images/clipboard_20250715154423.bmp)
 
+### Buymeacoffee
+
+- Receive Membership-Subscription and -Cancel Webhooks from Buymeacoffee.
+
 ## API Documentation
 
 - [Matrix API](https://www.matrix.org/docs/spec/r0.0.0/client_server.html)

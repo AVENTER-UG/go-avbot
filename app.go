@@ -7,6 +7,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 
+	_ "go-avbot/services/buymeacoffee"
 	_ "go-avbot/services/echo"
 	_ "go-avbot/services/gitea"
 	_ "go-avbot/services/ollama"

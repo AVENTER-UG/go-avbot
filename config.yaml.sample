@@ -92,8 +92,14 @@ services:
     Type: "unifi_protect"
     UserID: "@goavbot:localhost"
     Config:
-      RoomID: "<ROOM_ID_OF_YOUR_UNIFI_EVENT_ROOMT>"
+      RoomID: "<ROOM_ID_OF_YOUR_UNIFI_EVENT_ROOM>"
       User: <UNIFI_CLOUDKEY_USERNAME>
       Password: <UNIFI_CLOUDKEY_PASSWORD>
       Host: <UNIFI_CLOUDKEY_IP>
       Port: 443
+
+  - ID: "buymeacoffee"
+    Type: "buymeacoffee"
+    UserID: "@goavbot:localhost"
+    Config:
+      RoomID: "<ROOM_ID_OF_YOUR_BUYMEACOFFEE_EVENT_ROOMT>"
