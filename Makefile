@@ -2,7 +2,7 @@
 
 #vars
 IMAGENAME=go-avbot
-TAG=v0.6.3
+TAG=v0.7.0
 BRANCH=${TAG}
 BRANCHSHORT=$(shell echo ${BRANCH} | awk -F. '{ print $$1"."$$2 }')
 IMAGEFULLNAME=avhost/${IMAGENAME}

@@ -51,39 +51,35 @@ type Service struct {
 }
 
 type MembershipCancelledEvent struct {
-	Type     string         `json:"type"`
-	LiveMode bool           `json:"live_mode"`
-	Attempt  int            `json:"attempt"`
-	Created  int64          `json:"created"`
-	EventID  int            `json:"event_id"`
-	Data     MembershipData `json:"data"`
+	Type     string     `json:"type"`
+	LiveMode bool       `json:"live_mode"`
+	Attempt  int        `json:"attempt"`
+	Created  int64      `json:"created"`
+	EventID  int        `json:"event_id"`
+	Data     Membership `json:"data"`
 }
 
-type MembershipData struct {
-	ID                  int64  `json:"id"`
+type Membership struct {
+	ID                  int    `json:"id"`
 	Amount              int    `json:"amount"`
 	Object              string `json:"object"`
-	Paused              string `json:"paused"`   // "false"/"true" im Payload
-	Status              string `json:"status"`   // "active" / "canceled"
-	Canceled            string `json:"canceled"` // "true"/"false"
+	Paused              string `json:"paused"`
+	Status              string `json:"status"`
+	Canceled            string `json:"canceled"`
 	Currency            string `json:"currency"`
 	PSPID               string `json:"psp_id"`
 	DurationType        string `json:"duration_type"`
 	MembershipLevelID   int    `json:"membership_level_id"`
 	MembershipLevelName string `json:"membership_level_name"`
 	StartedAt           int64  `json:"started_at"`
-
-	// NULL‑fähige Felder
-	CanceledAt        *int64  `json:"canceled_at"`        // bei "started" -> null, bei "cancelled" -> timestamp
-	SupporterFeedback *string `json:"supporter_feedback"` // bei "started" -> fehlt/NULL, bei "cancelled" -> String
-
-	NoteHidden         bool   `json:"note_hidden"`
-	SupportNote        string `json:"support_note"`
-	SupporterName      string `json:"supporter_name"`
-	SupporterID        int    `json:"supporter_id"`
-	SupporterEmail     string `json:"supporter_email"`
-	CurrentPeriodEnd   int64  `json:"current_period_end"`
-	CurrentPeriodStart int64  `json:"current_period_start"`
+	CanceledAt          *int64 `json:"canceled_at"`
+	NoteHidden          bool   `json:"note_hidden"`
+	SupportNote         string `json:"support_note"`
+	SupporterName       string `json:"supporter_name"`
+	SupporterID         int    `json:"supporter_id"`
+	SupporterEmail      string `json:"supporter_email"`
+	CurrentPeriodEnd    int64  `json:"current_period_end"`
+	CurrentPeriodStart  int64  `json:"current_period_start"`
 }
 
 // OnReceiveWebhook receives requests from buymeacoffee.com and sends notifications to Matrix.
@@ -97,11 +93,12 @@ func (e *Service) OnReceiveWebhook(w http.ResponseWriter, req *http.Request, cli
 		return
 	}
 
-	logrus.Debug(string(payload))
+	logrus.Info(string(payload))
 
 	var evt MembershipCancelledEvent
-	if err := json.NewDecoder(req.Body).Decode(&evt); err != nil {
-		logrus.Error(w, err.Error(), http.StatusBadRequest)
+	if err := json.Unmarshal([]byte(payload), &evt); err != nil {
+		logrus.WithError(err).Error("Buymeacoffee received an invalid JSON payload=", payload)
+		w.WriteHeader(400)
 		return
 	}
 
@@ -114,9 +111,11 @@ func (e *Service) OnReceiveWebhook(w http.ResponseWriter, req *http.Request, cli
 	}
 
 	message := fmt.Sprintf(
-		"<strong>Username:</strong> %s<br>"+
+		"%s<br>"+
+			"<strong>Username:</strong> %s<br>"+
 			"<strong>Email:</strong> %s<br>"+
 			"<strong>Note:</strong> %s",
+		evt.Type,
 		evt.Data.SupporterName,
 		evt.Data.SupporterEmail,
 		evt.Data.SupportNote,
@@ -130,7 +129,7 @@ func (e *Service) OnReceiveWebhook(w http.ResponseWriter, req *http.Request, cli
 	}
 
 	if _, err := client.SendMessageEvent(e.RoomID, "m.room.message", msg); err != nil {
-		logrus.WithField("room_id", e.RoomID).Error("Failed to send unifi ring notification to room.")
+		logrus.WithField("room_id", e.RoomID).Error("Failed to send buymeacoffee notification to room.")
 	}
 
 	w.WriteHeader(200)
