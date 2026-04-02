@@ -72,6 +72,7 @@ address the message to the bot.
 ### Buymeacoffee
 
 - Receive Membership-Subscription and -Cancel Webhooks from Buymeacoffee.
+- Remove user from membership room automaticly after membership is canceld.
 
 ## API Documentation
 

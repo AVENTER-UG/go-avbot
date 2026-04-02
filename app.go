@@ -143,11 +143,6 @@ func insertServicesFromConfig(clis *clients.Clients, serviceReqs []api.Configure
 }
 
 func loadDatabase(databaseType, databaseURL, configYAML string) (*database.ServiceDB, error) {
-	if configYAML != "" {
-		databaseType = "sqlite3"
-		databaseURL = ":memory:?_busy_timeout=5000"
-	}
-
 	db, err := database.Open(databaseType, databaseURL)
 	if err == nil {
 		database.SetServiceDB(db) // set singleton
