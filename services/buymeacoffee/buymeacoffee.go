@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
+	"go-avbot/database"
 	"go-avbot/types"
 
 	"github.com/AVENTER-UG/gomatrix"
@@ -108,6 +110,21 @@ func (e *Service) OnReceiveWebhook(w http.ResponseWriter, req *http.Request, cli
 
 	case "membership.cancelled":
 		logrus.Info("Subscription cancelled:", evt.Data.SupporterEmail)
+
+		if err := database.GetServiceDB().DeleteBMCSupporter(evt.Data.SupporterEmail); err != nil {
+			message := fmt.Sprintf("<b>Failed to delete supporter: %s</b>", evt.Data.SupporterEmail)
+
+			logrus.WithError(err).Error("Failed to delete supporter")
+			msg := gomatrix.HTMLMessage{
+				Body:          message,
+				MsgType:       "m.notice",
+				Format:        "org.matrix.custom.html",
+				FormattedBody: util.MarkdownRender(message),
+			}
+			if _, err := client.SendMessageEvent(e.RoomID, "m.room.message", msg); err != nil {
+				logrus.WithField("room_id", e.RoomID).Error("Failed to send buymeacoffee notification to room.")
+			}
+		}
 	}
 
 	message := fmt.Sprintf(
@@ -149,6 +166,71 @@ func (e *Service) joinRooms(client *gomatrix.Client) {
 			"room_id":    e.RoomID,
 			"user_id":    client.UserID,
 		}).Error("Failed to join room")
+	}
+}
+
+// Commands supported:
+//
+//	!bmc supporter email <email> <matrix-id> <name>
+//	Stores supporter information in the database
+//
+//	!bmc supporter delete <email>
+//	Deletes a supporter from the database
+//
+//	!bmc some message
+//	Responds with a notice of "some message".
+func (e *Service) Commands(cli *gomatrix.Client) []types.Command {
+	return []types.Command{
+		{
+			Path: []string{"supporter", "add"},
+			Command: func(roomID, userID string, args []string) (interface{}, error) {
+				if len(args) < 3 {
+					return &gomatrix.TextMessage{
+						MsgType: "m.notice",
+						Body:    "Usage: !bmc supporter add <email> <matrix-id> <name>",
+					}, nil
+				}
+				email := args[0]
+				matrixID := args[1]
+				name := strings.Join(args[2:], " ")
+
+				if err := database.GetServiceDB().StoreBMCSupporter(email, matrixID, name); err != nil {
+					return &gomatrix.TextMessage{
+						MsgType: "m.notice",
+						Body:    "Failed to store supporter: " + err.Error(),
+					}, nil
+				}
+
+				return &gomatrix.TextMessage{
+					MsgType: "m.notice",
+					Body:    "Successfully stored supporter: " + name,
+				}, nil
+			},
+		},
+		{
+			Path: []string{"supporter", "delete"},
+			Command: func(roomID, userID string, args []string) (interface{}, error) {
+				if len(args) < 1 {
+					return &gomatrix.TextMessage{
+						MsgType: "m.notice",
+						Body:    "Usage: !bmc supporter delete <email>",
+					}, nil
+				}
+				email := args[0]
+
+				if err := database.GetServiceDB().DeleteBMCSupporter(email); err != nil {
+					return &gomatrix.TextMessage{
+						MsgType: "m.notice",
+						Body:    "Failed to delete supporter: " + err.Error(),
+					}, nil
+				}
+
+				return &gomatrix.TextMessage{
+					MsgType: "m.notice",
+					Body:    "Successfully deleted supporter: " + email,
+				}, nil
+			},
+		},
 	}
 }
 

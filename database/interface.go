@@ -33,6 +33,10 @@ type Storer interface {
 	StoreBotOptions(opts types.BotOptions) (oldOpts types.BotOptions, err error)
 
 	InsertFromConfig(cfg *api.ConfigFile) error
+
+	DeleteBMCSupporter(email string) (err error)
+	StoreBMCSupporter(email, matrixID, supporterName string) (err error)
+	LoadBMCSupporter(email string) (matrixID, supporterName string, err error)
 }
 
 // NopStorage nops every store API call. This is intended to be embedded into derived structs
@@ -137,4 +141,19 @@ func (s *NopStorage) StoreBotOptions(opts types.BotOptions) (oldOpts types.BotOp
 // InsertFromConfig NOP
 func (s *NopStorage) InsertFromConfig(cfg *api.ConfigFile) error {
 	return nil
+}
+
+// DeleteBMCSupporter NOP
+func (s *NopStorage) DeleteBMCSupporter(email string) (err error) {
+	return
+}
+
+// StoreBMCSupporter NOP
+func (s *NopStorage) StoreBMCSupporter(email, matrixID, supporterName string) (err error) {
+	return
+}
+
+// LoadBMCSupporter NOP
+func (s *NopStorage) LoadBMCSupporter(email string) (matrixID, supporterName string, err error) {
+	return
 }

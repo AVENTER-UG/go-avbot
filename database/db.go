@@ -2,8 +2,6 @@ package database
 
 import (
 	"database/sql"
-	"encoding/json"
-	"fmt"
 	"time"
 
 	"go-avbot/api"
@@ -283,47 +281,33 @@ func (d *ServiceDB) InsertFromConfig(cfg *api.ConfigFile) error {
 			return err
 		}
 	}
-
-	// Keep a map of realms for inserting sessions
-	realms := map[string]types.AuthRealm{} // by realm ID
-
-	// Insert realms
-	for _, r := range cfg.Realms {
-		if err := r.Check(); err != nil {
-			return err
-		}
-		realm, err := types.CreateAuthRealm(r.ID, r.Type, r.Config)
-		if err != nil {
-			return err
-		}
-		if _, err := d.StoreAuthRealm(realm); err != nil {
-			return err
-		}
-		realms[realm.ID()] = realm
-	}
-
-	// Insert sessions
-	for _, s := range cfg.Sessions {
-		if err := s.Check(); err != nil {
-			return err
-		}
-		r := realms[s.RealmID]
-		if r == nil {
-			return fmt.Errorf("Session %s specifies an unknown realm ID %s", s.SessionID, s.RealmID)
-		}
-		session := r.AuthSession(s.SessionID, s.UserID, s.RealmID)
-		// dump the raw JSON config directly into the session. This is what
-		// selectAuthSessionByUserTxn does.
-		if err := json.Unmarshal(s.Config, session); err != nil {
-			return err
-		}
-		if _, err := d.StoreAuthSession(session); err != nil {
-			return err
-		}
-	}
-
-	// Do not insert services yet, they require more work to set up.
 	return nil
+}
+
+// StoreBMCSupporter stores or updates a Buymeacoffee supporter in the database
+func (d *ServiceDB) StoreBMCSupporter(email, matrixID, supporterName string) (err error) {
+	err = runTransaction(d.db, func(txn *sql.Tx) error {
+		return storeBMCSupporterTxn(txn, email, matrixID, supporterName)
+	})
+	return
+}
+
+// LoadBMCSupporter loads a Buymeacoffee supporter from the database
+// Returns sql.ErrNoRows if the supporter is not in the database
+func (d *ServiceDB) LoadBMCSupporter(email string) (matrixID, supporterName string, err error) {
+	err = runTransaction(d.db, func(txn *sql.Tx) error {
+		matrixID, supporterName, err = loadBMCSupporterTxn(txn, email)
+		return err
+	})
+	return
+}
+
+// DeleteBMCSupporter removes a Buymeacoffee supporter from the database
+func (d *ServiceDB) DeleteBMCSupporter(email string) (err error) {
+	err = runTransaction(d.db, func(txn *sql.Tx) error {
+		return deleteBMCSupporterTxn(txn, email)
+	})
+	return
 }
 
 func runTransaction(db *sql.DB, fn func(txn *sql.Tx) error) (err error) {

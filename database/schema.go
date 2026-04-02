@@ -60,6 +60,15 @@ CREATE TABLE IF NOT EXISTS bot_options (
 	time_updated_ms BIGINT NOT NULL,
 	UNIQUE(user_id, room_id)
 );
+
+CREATE TABLE IF NOT EXISTS bmc_supporters (
+	email TEXT NOT NULL,
+	matrix_id TEXT NOT NULL,
+	supporter_name TEXT NOT NULL,
+	time_added_ms BIGINT NOT NULL,
+	time_updated_ms BIGINT NOT NULL,
+	UNIQUE(email)
+);
 `
 
 const selectMatrixClientConfigSQL = `
@@ -266,6 +275,37 @@ DELETE FROM services WHERE service_id = $1
 
 func deleteServiceTxn(txn *sql.Tx, serviceID string) error {
 	_, err := txn.Exec(deleteServiceSQL, serviceID)
+	return err
+}
+
+const insertBMCSupporterSQL = `
+INSERT INTO bmc_supporters(
+	email, matrix_id, supporter_name, time_added_ms, time_updated_ms
+) VALUES ($1, $2, $3, $4, $5)
+`
+
+func storeBMCSupporterTxn(txn *sql.Tx, email, matrixID, supporterName string) error {
+	t := int64(0)
+	_, err := txn.Exec(insertBMCSupporterSQL, email, matrixID, supporterName, t, t)
+	return err
+}
+
+const loadBMCSupporterSQL = `
+SELECT matrix_id, supporter_name FROM bmc_supporters WHERE email = $1
+`
+
+func loadBMCSupporterTxn(txn *sql.Tx, email string) (matrixID, supporterName string, err error) {
+	row := txn.QueryRow(loadBMCSupporterSQL, email)
+	err = row.Scan(&matrixID, &supporterName)
+	return
+}
+
+const deleteBMCSupporterSQL = `
+DELETE FROM bmc_supporters WHERE email = $1
+`
+
+func deleteBMCSupporterTxn(txn *sql.Tx, email string) error {
+	_, err := txn.Exec(deleteBMCSupporterSQL, email)
 	return err
 }
 
