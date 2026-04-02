@@ -50,6 +50,7 @@ type Service struct {
 	types.DefaultService
 	webhookEndpointURL string
 	RoomID             string
+	BMCMemberRoom      string
 }
 
 type MembershipCancelledEvent struct {
@@ -95,8 +96,6 @@ func (e *Service) OnReceiveWebhook(w http.ResponseWriter, req *http.Request, cli
 		return
 	}
 
-	logrus.Info(string(payload))
-
 	var evt MembershipCancelledEvent
 	if err := json.Unmarshal([]byte(payload), &evt); err != nil {
 		logrus.WithError(err).Error("Buymeacoffee received an invalid JSON payload=", payload)
@@ -110,21 +109,7 @@ func (e *Service) OnReceiveWebhook(w http.ResponseWriter, req *http.Request, cli
 
 	case "membership.cancelled":
 		logrus.Info("Subscription cancelled:", evt.Data.SupporterEmail)
-
-		if err := database.GetServiceDB().DeleteBMCSupporter(evt.Data.SupporterEmail); err != nil {
-			message := fmt.Sprintf("<b>Failed to delete supporter: %s</b>", evt.Data.SupporterEmail)
-
-			logrus.WithError(err).Error("Failed to delete supporter")
-			msg := gomatrix.HTMLMessage{
-				Body:          message,
-				MsgType:       "m.notice",
-				Format:        "org.matrix.custom.html",
-				FormattedBody: util.MarkdownRender(message),
-			}
-			if _, err := client.SendMessageEvent(e.RoomID, "m.room.message", msg); err != nil {
-				logrus.WithField("room_id", e.RoomID).Error("Failed to send buymeacoffee notification to room.")
-			}
-		}
+		e.removeUserFromBMCRoom(client, evt.Data.SupporterEmail)
 	}
 
 	message := fmt.Sprintf(
@@ -150,6 +135,106 @@ func (e *Service) OnReceiveWebhook(w http.ResponseWriter, req *http.Request, cli
 	}
 
 	w.WriteHeader(200)
+}
+
+func (e *Service) inviteUserToBMCRoom(client *gomatrix.Client, matrixID, email, name string) error {
+	var ku gomatrix.ReqInviteUser
+	ku.UserID = matrixID
+	_, err := client.InviteUser(e.BMCMemberRoom, &ku)
+
+	if err != nil {
+		message := fmt.Sprintf("<b>Failed to invite member: %s</b>", email)
+
+		logrus.WithError(err).Error("Failed to invite member")
+		msg := gomatrix.HTMLMessage{
+			Body:          message,
+			MsgType:       "m.notice",
+			Format:        "org.matrix.custom.html",
+			FormattedBody: util.MarkdownRender(message),
+		}
+		if _, err := client.SendMessageEvent(e.RoomID, "m.room.message", msg); err != nil {
+			logrus.WithField("room_id", e.RoomID).Error("Failed to send buymeacoffee notification to room.")
+		}
+
+		return err
+	}
+
+	if err := database.GetServiceDB().StoreBMCSupporter(email, matrixID, name); err != nil {
+		message := fmt.Sprintf("<b>Failed to store member data: %s</b>", email)
+
+		logrus.WithError(err).Error("Failed to store member data")
+		msg := gomatrix.HTMLMessage{
+			Body:          message,
+			MsgType:       "m.notice",
+			Format:        "org.matrix.custom.html",
+			FormattedBody: util.MarkdownRender(message),
+		}
+		if _, err := client.SendMessageEvent(e.RoomID, "m.room.message", msg); err != nil {
+			logrus.WithField("room_id", e.RoomID).Error("Failed to send buymeacoffee notification to room.")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (e *Service) removeUserFromBMCRoom(client *gomatrix.Client, email string) error {
+	matrixID, supporterName, err := database.GetServiceDB().LoadBMCSupporter(email)
+
+	if err != nil {
+		message := fmt.Sprintf("<b>Failed to load supporter data: %s</b>", email)
+
+		logrus.WithError(err).Error("Failed to load supporter data")
+		msg := gomatrix.HTMLMessage{
+			Body:          message,
+			MsgType:       "m.notice",
+			Format:        "org.matrix.custom.html",
+			FormattedBody: util.MarkdownRender(message),
+		}
+		if _, err := client.SendMessageEvent(e.RoomID, "m.room.message", msg); err != nil {
+			logrus.WithField("room_id", e.RoomID).Error("Failed to send buymeacoffee notification to room.")
+		}
+		return err
+	}
+
+	var ku gomatrix.ReqKickUser
+	ku.Reason = supporterName + " canceld membership"
+	ku.UserID = matrixID
+	_, err = client.KickUser(e.BMCMemberRoom, &ku)
+
+	if err != nil {
+		message := fmt.Sprintf("<b>Failed to kick member: %s</b>", email)
+
+		logrus.WithError(err).Error("Failed to kick member")
+		msg := gomatrix.HTMLMessage{
+			Body:          message,
+			MsgType:       "m.notice",
+			Format:        "org.matrix.custom.html",
+			FormattedBody: util.MarkdownRender(message),
+		}
+		if _, err := client.SendMessageEvent(e.RoomID, "m.room.message", msg); err != nil {
+			logrus.WithField("room_id", e.RoomID).Error("Failed to send buymeacoffee notification to room.")
+		}
+
+		return err
+	}
+	if err := database.GetServiceDB().DeleteBMCSupporter(email); err != nil {
+		message := fmt.Sprintf("<b>Failed to delete member: %s</b>", email)
+
+		logrus.WithError(err).Error("Failed to delete member")
+		msg := gomatrix.HTMLMessage{
+			Body:          message,
+			MsgType:       "m.notice",
+			Format:        "org.matrix.custom.html",
+			FormattedBody: util.MarkdownRender(message),
+		}
+		if _, err := client.SendMessageEvent(e.RoomID, "m.room.message", msg); err != nil {
+			logrus.WithField("room_id", e.RoomID).Error("Failed to send buymeacoffee notification to room.")
+		}
+		return err
+	}
+
+	return nil
 }
 
 // Register makes sure the Config information supplied is valid.
@@ -194,13 +279,14 @@ func (e *Service) Commands(cli *gomatrix.Client) []types.Command {
 				matrixID := args[1]
 				name := strings.Join(args[2:], " ")
 
-				if err := database.GetServiceDB().StoreBMCSupporter(email, matrixID, name); err != nil {
+				err := e.inviteUserToBMCRoom(cli, matrixID, email, name)
+
+				if err != nil {
 					return &gomatrix.TextMessage{
 						MsgType: "m.notice",
 						Body:    "Failed to store supporter: " + err.Error(),
 					}, nil
 				}
-
 				return &gomatrix.TextMessage{
 					MsgType: "m.notice",
 					Body:    "Successfully stored supporter: " + name,
@@ -218,13 +304,14 @@ func (e *Service) Commands(cli *gomatrix.Client) []types.Command {
 				}
 				email := args[0]
 
-				if err := database.GetServiceDB().DeleteBMCSupporter(email); err != nil {
+				err := e.removeUserFromBMCRoom(cli, email)
+
+				if err != nil {
 					return &gomatrix.TextMessage{
 						MsgType: "m.notice",
-						Body:    "Failed to delete supporter: " + err.Error(),
+						Body:    "Could not delete supporter: " + email,
 					}, nil
 				}
-
 				return &gomatrix.TextMessage{
 					MsgType: "m.notice",
 					Body:    "Successfully deleted supporter: " + email,
