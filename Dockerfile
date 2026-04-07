@@ -18,12 +18,10 @@ LABEL org.opencontainers.image.description="Matrix Bot"
 LABEL org.opencontainers.image.vendor="AVENTER UG (haftungsbeschränkt)"
 LABEL org.opencontainers.image.source="https://github.com/AVENTER-UG/"
 
-
-ENV BIND_ADDRESS=:4050 DATABASE_TYPE=sqlite3 DATABASE_URL=/go-avbot/data/go-neb.db?_busy_timeout=5000 
+ENV BIND_ADDRESS=:4050 DATABASE_TYPE=sqlite3 DATABASE_URL=/app/data/go-neb.db?_busy_timeout=5000 
 
 RUN apk add --no-cache ca-certificates
-RUN adduser -S -D -H -h /app appuser
-USER appuser
+USER nobody
 
 COPY --from=builder /build/main /app/
 
