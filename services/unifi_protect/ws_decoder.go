@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/sirupsen/logrus"
 )
 
 /* A packet header is composed of 8 bytes in this order:
@@ -100,8 +102,8 @@ func DecodeWsMessage(data []byte) (*WsMessage, error) {
 		return nil, err
 	}
 
-	//	logrus.Info("ACTION:   ", string(actionFrame.data))
-	//	logrus.Info("PAYLOAD:  ", string(payloadFrame.data))
+	logrus.Info("ACTION:   ", string(actionFrame.data))
+	logrus.Info("PAYLOAD:  ", string(payloadFrame.data))
 
 	return &WsMessage{
 		Action:  *actionFrame,

@@ -2,14 +2,18 @@
 package unifi_protect
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/AVENTER-UG/gomatrix"
 	"github.com/AVENTER-UG/util/util"
 	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 type webhookNotification struct {
@@ -23,9 +27,14 @@ type webhookNotification struct {
 			} `json:"condition"`
 		} `json:"conditions"`
 		Triggers []struct {
-			Key    string `json:"key"`
-			Device string `json:"device"`
+			Key       string `json:"key"`
+			Device    string `json:"device"`
+			EventID   string `json:"eventId"`
+			Timestamp int64  `json:"timestamp"`
 		} `json:"triggers"`
+		Thumbnail      string `json:"thumbnail"`
+		EventPath      string `json:"eventPath"`
+		EventLocalLink string `json:"eventLocalLink"`
 	} `json:"alarm"`
 	Timestamp int64 `json:"timestamp"`
 }
@@ -46,7 +55,7 @@ func (e *Service) OnReceiveWebhook(w http.ResponseWriter, req *http.Request, cli
 		return
 	}
 
-	logrus.Debug(string(payload))
+	//logrus.Info(string(payload))
 
 	var notif webhookNotification
 	if err := json.Unmarshal([]byte(payload), &notif); err != nil {
@@ -55,7 +64,7 @@ func (e *Service) OnReceiveWebhook(w http.ResponseWriter, req *http.Request, cli
 		return
 	}
 
-	message := fmt.Sprintf("<i>%s</i> triggerd by: ", notif.Alarm.Name)
+	message := "<i>Alarm</i> triggerd by: "
 	for _, key := range notif.Alarm.Triggers {
 		message += key.Key + " "
 	}
@@ -71,5 +80,37 @@ func (e *Service) OnReceiveWebhook(w http.ResponseWriter, req *http.Request, cli
 		logrus.WithField("room_id", e.RoomID).Error("Failed to send unifi ring notification to room.")
 	}
 
+	out, length, err := e.GetImageFromThumbnail(notif.Alarm.Thumbnail)
+	if err != nil {
+		logrus.WithField("room_id", e.RoomID).Error("Could not read thumbnail.", err.Error())
+		return
+	}
+
+	rmu, err := client.UploadToContentRepo(out, "image/jpeg", length)
+	if err != nil {
+		logrus.WithField("room_id", e.RoomID).Error("Could not upload thumbnail.", err.Error())
+		return
+	}
+	log.Info(rmu.ContentURI)
+
+	if _, err := client.SendImage(e.RoomID, "file"+notif.Alarm.Triggers[0].EventID+".jpg", rmu.ContentURI); err != nil {
+		logrus.WithField("room_id", e.RoomID).Error("Failed to send unifi_protect thumbnail to room.")
+	}
+
 	w.WriteHeader(200)
+}
+
+func (e *Service) GetImageFromThumbnail(src string) (io.Reader, int64, error) {
+	commaIdx := strings.Index(src, ",")
+	if commaIdx < 0 {
+		return nil, 0, errors.New("invalid data URI: missing comma separator")
+	}
+	base64Data := src[commaIdx+1:]
+
+	decoded, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return bytes.NewReader(decoded), int64(len(decoded)), nil
 }
