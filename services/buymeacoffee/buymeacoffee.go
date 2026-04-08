@@ -256,14 +256,12 @@ func (e *Service) joinRooms(client *gomatrix.Client) {
 
 // Commands supported:
 //
-//	!bmc supporter email <email> <matrix-id> <name>
+//	!supporter email <email> <matrix-id> <name>
 //	Stores supporter information in the database
 //
-//	!bmc supporter delete <email>
+//	!supporter delete <email>
 //	Deletes a supporter from the database
 //
-//	!bmc some message
-//	Responds with a notice of "some message".
 func (e *Service) Commands(cli *gomatrix.Client) []types.Command {
 	return []types.Command{
 		{
@@ -272,7 +270,7 @@ func (e *Service) Commands(cli *gomatrix.Client) []types.Command {
 				if len(args) < 3 {
 					return &gomatrix.TextMessage{
 						MsgType: "m.notice",
-						Body:    "Usage: !bmc supporter add <email> <matrix-id> <name>",
+						Body:    "Usage: !supporter add <email> <matrix-id> <name>",
 					}, nil
 				}
 				email := args[0]
